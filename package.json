@@ -2,6 +2,7 @@
   "name": "espetinho-pedidos",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@12.23.0",
   "engines": { "node": "26.13.1" },
   "scripts": {
@@ -43,7 +44,6 @@
     "jsdom": "31.0.1",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
-    "vite-tsconfig-paths": "6.1.1",
     "vitest": "5.1.1"
   }
 }

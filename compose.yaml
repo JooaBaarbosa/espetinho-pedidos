@@ -18,7 +18,7 @@ services:
     image: node:26.13.1-trixie-slim
     working_dir: /app
     # Node 25+ não traz mais o corepack: instala se faltar e ativa o pnpm do packageManager
-    entrypoint: ["sh", "-c", "command -v corepack >/dev/null 2>&1 || npm install -g --silent corepack; corepack enable && exec \"$$@\"", "--"]
+    entrypoint: ["sh", "-c", "command -v corepack >/dev/null 2>&1 || npm install -g --silent corepack@0.36.0; corepack enable && exec \"$$@\"", "--"]
     command: ["pnpm", "dev", "-H", "0.0.0.0"]
     environment:
       DATABASE_URL: postgres://postgres:dev@db:5432/espetinho
