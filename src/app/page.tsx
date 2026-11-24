@@ -1,3 +1,5 @@
+import { Painel } from "@/components/Painel";
+
 export default function Home() {
-  return <main>Pedidos do espetinho</main>;
+  return <Painel />;
 }
