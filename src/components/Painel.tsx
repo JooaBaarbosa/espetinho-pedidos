@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { CartaoPedido } from "./CartaoPedido";
 import { FaixaConexao } from "./FaixaConexao";
 import { Finalizados } from "./Finalizados";
@@ -29,6 +29,9 @@ export function Painel() {
   const [sabores, setSabores] = useState<Sabor[] | null>(null);
   const [falhaSabores, setFalhaSabores] = useState(false);
   const origemFoco = useRef<HTMLElement | null>(null);
+  /** Identifica a abertura atual do formulário; respostas de aberturas antigas são ignoradas. */
+  const aberturaAtual = useRef(0);
+  const [abertura, setAbertura] = useState(0);
   const [aba, setAba] = useState<Aba>("preparacao");
 
   const ativos = dados?.ativos ?? [];
@@ -45,30 +48,49 @@ export function Painel() {
     finalizados: finalizados.length,
   };
 
-  const carregarSabores = useCallback(async () => {
-    setFalhaSabores(false);
-    try {
-      setSabores(await buscarSabores());
-    } catch (e) {
-      if (e instanceof SessaoExpirada) {
-        router.replace("/entrar");
-        return;
+  const carregarSabores = useCallback(
+    async (minha: number) => {
+      setFalhaSabores(false);
+      try {
+        const lista = await buscarSabores();
+        if (aberturaAtual.current === minha) setSabores(lista);
+      } catch (e) {
+        if (aberturaAtual.current !== minha) return;
+        if (e instanceof SessaoExpirada) {
+          router.replace("/entrar");
+          return;
+        }
+        setFalhaSabores(true);
       }
-      setFalhaSabores(true);
-    }
-  }, [router]);
+    },
+    [router],
+  );
 
   function abrirNovo() {
     origemFoco.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const minha = aberturaAtual.current + 1;
+    aberturaAtual.current = minha;
+    setAbertura(minha);
     setSabores(null);
     setNovoAberto(true);
-    void carregarSabores();
+    void carregarSabores(minha);
   }
 
   function fecharNovo() {
+    aberturaAtual.current += 1;
     setNovoAberto(false);
     origemFoco.current?.focus();
   }
+
+  const carregandoSabores = novoAberto && sabores === null;
+  useEffect(() => {
+    if (!carregandoSabores) return;
+    function aoTeclar(e: KeyboardEvent) {
+      if (e.key === "Escape") fecharNovo();
+    }
+    document.addEventListener("keydown", aoTeclar);
+    return () => document.removeEventListener("keydown", aoTeclar);
+  }, [carregandoSabores]);
 
   async function enviarNovo(p: NovoPedido) {
     try {
@@ -79,8 +101,9 @@ export function Painel() {
     }
   }
 
-  function concluirNovo() {
-    fecharNovo();
+  /** Só fecha se o diálogo ainda é a abertura que enviou o pedido; a lista sempre recarrega. */
+  function concluirNovo(minha: number) {
+    if (aberturaAtual.current === minha) fecharNovo();
     void recarregar();
   }
 
@@ -145,7 +168,7 @@ export function Painel() {
           <FormNovoPedido
             sabores={sabores}
             enviar={enviarNovo}
-            onConcluido={concluirNovo}
+            onConcluido={() => concluirNovo(abertura)}
             onFechar={fecharNovo}
           />
         ) : (
@@ -153,7 +176,7 @@ export function Painel() {
             {falhaSabores ? (
               <>
                 <p>Não foi possível carregar os sabores.</p>
-                <button type="button" onClick={() => void carregarSabores()}>
+                <button type="button" onClick={() => void carregarSabores(abertura)}>
                   Tentar de novo
                 </button>
                 <button type="button" onClick={fecharNovo}>
@@ -161,7 +184,12 @@ export function Painel() {
                 </button>
               </>
             ) : (
-              <p>Carregando sabores</p>
+              <>
+                <p>Carregando sabores</p>
+                <button type="button" onClick={fecharNovo}>
+                  Fechar
+                </button>
+              </>
             )}
           </div>
         ))}

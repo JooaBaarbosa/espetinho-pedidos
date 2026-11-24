@@ -32,7 +32,7 @@ export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar }: Props
   useEffect(() => {
     nomeRef.current?.focus();
     function aoTeclar(e: KeyboardEvent) {
-      if (e.key === "Escape") onFecharRef.current();
+      if (e.key === "Escape" && !emEnvio.current) onFecharRef.current();
     }
     document.addEventListener("keydown", aoTeclar);
     return () => document.removeEventListener("keydown", aoTeclar);
@@ -44,6 +44,15 @@ export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar }: Props
   const total = itens.reduce((soma, i) => soma + i.quantidade, 0);
   const nome = cliente.trim();
   const podeAnotar = nome !== "" && itens.length > 0 && !enviando;
+
+  function fechar() {
+    if (!emEnvio.current) onFechar();
+  }
+
+  /** Toque fora só fecha se não há nada digitado para perder. */
+  function aoTocarFundo() {
+    if (cliente === "" && itens.length === 0) fechar();
+  }
 
   function alternar(saborId: number, marcado: boolean) {
     setQuantidades((atual) => {
@@ -76,7 +85,7 @@ export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar }: Props
   }
 
   return (
-    <div className={styles.fundo} onClick={onFechar}>
+    <div className={styles.fundo} onClick={aoTocarFundo}>
       <div
         role="dialog"
         aria-modal="true"
@@ -90,7 +99,7 @@ export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar }: Props
               <IconeMarca nome="espeto" tamanho={28} />
               Novo pedido
             </h2>
-            <button type="button" className={styles.fechar} onClick={onFechar} aria-label="Fechar">
+            <button type="button" className={styles.fechar} disabled={enviando} onClick={fechar} aria-label="Fechar">
               <X aria-hidden="true" size={22} />
             </button>
           </header>

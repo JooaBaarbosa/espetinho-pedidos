@@ -124,6 +124,40 @@ describe("FormNovoPedido", () => {
     expect(enviar.mock.calls[1]?.[0].id).toBe(enviar.mock.calls[0]?.[0].id);
   });
 
+  it("durante o envio, Esc, X e fundo não fecham", async () => {
+    const u = userEvent.setup();
+    const enviar = vi.fn().mockReturnValue(new Promise(() => {}));
+    const { onFechar } = montar(enviar);
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    await u.keyboard("{Escape}");
+    await u.click(screen.getByRole("button", { name: "Fechar" }));
+    await u.click(screen.getByRole("dialog").parentElement as HTMLElement);
+    expect(screen.getByRole("button", { name: "Fechar" })).toBeDisabled();
+    expect(onFechar).not.toHaveBeenCalled();
+  });
+
+  it("toque no fundo só fecha com o formulário vazio; Esc e X fecham sempre", async () => {
+    const u = userEvent.setup();
+    const { onFechar } = montar();
+    const fundo = screen.getByRole("dialog").parentElement as HTMLElement;
+    await u.type(screen.getByLabelText("Nome do cliente"), "J");
+    await u.click(fundo);
+    expect(onFechar).not.toHaveBeenCalled();
+    await u.clear(screen.getByLabelText("Nome do cliente"));
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(fundo);
+    expect(onFechar).not.toHaveBeenCalled();
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(fundo);
+    expect(onFechar).toHaveBeenCalledTimes(1);
+    await u.type(screen.getByLabelText("Nome do cliente"), "J");
+    await u.click(screen.getByRole("button", { name: "Fechar" }));
+    await u.keyboard("{Escape}");
+    expect(onFechar).toHaveBeenCalledTimes(3);
+  });
+
   it("Esc fecha e o campo de nome limita 40 caracteres", async () => {
     const u = userEvent.setup();
     const { onFechar } = montar();
