@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buscarPainel, enviarPedido, executarAcao, SessaoExpirada } from "@/lib/api";
+import { buscarPainel, buscarSabores, enviarPedido, executarAcao, SessaoExpirada } from "@/lib/api";
 import type { PainelResposta } from "@/lib/tipos";
 
 function resposta(status: number, corpo: unknown): Response {
@@ -22,6 +22,19 @@ afterEach(() => {
 });
 
 describe("api", () => {
+  it("buscarSabores devolve o corpo do GET /api/sabores", async () => {
+    const sabores = [{ id: 1, nome: "Carne", ativo: true, ordem: 1 }];
+    const fetchMock = vi.fn().mockResolvedValue(resposta(200, sabores));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(buscarSabores()).resolves.toEqual(sabores);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/sabores");
+  });
+
+  it("buscarSabores com 401 lança SessaoExpirada", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta(401, { erro: "x" })));
+    await expect(buscarSabores()).rejects.toBeInstanceOf(SessaoExpirada);
+  });
+
   it("buscarPainel devolve o corpo do GET /api/pedidos", async () => {
     const fetchMock = vi.fn().mockResolvedValue(resposta(200, PAINEL));
     vi.stubGlobal("fetch", fetchMock);

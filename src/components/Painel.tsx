@@ -1,16 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { CartaoPedido } from "./CartaoPedido";
 import { FaixaConexao } from "./FaixaConexao";
 import { Finalizados } from "./Finalizados";
+import { FormNovoPedido } from "./FormNovoPedido";
 import { IconeMarca } from "./IconeMarca";
 import { Topo } from "./Topo";
 import { usePainel } from "@/hooks/usePainel";
-import { ErroApi, executarAcao, SessaoExpirada } from "@/lib/api";
-import { estaAtrasado } from "@/lib/regras";
-import type { Acao, Pedido } from "@/lib/tipos";
+import { buscarSabores, enviarPedido, ErroApi, executarAcao, SessaoExpirada } from "@/lib/api";
+import { estaAtrasado, type NovoPedido } from "@/lib/regras";
+import type { Acao, Pedido, Sabor } from "@/lib/tipos";
 import styles from "./Painel.module.css";
 
 type Aba = "preparacao" | "espera" | "finalizados";
@@ -24,7 +25,10 @@ const ABAS: { id: Aba; rotulo: string }[] = [
 export function Painel() {
   const router = useRouter();
   const { dados, agora, semConexao, recarregar } = usePainel();
-  const [, setNovoAberto] = useState(false);
+  const [novoAberto, setNovoAberto] = useState(false);
+  const [sabores, setSabores] = useState<Sabor[] | null>(null);
+  const [falhaSabores, setFalhaSabores] = useState(false);
+  const origemFoco = useRef<HTMLElement | null>(null);
   const [aba, setAba] = useState<Aba>("preparacao");
 
   const ativos = dados?.ativos ?? [];
@@ -40,6 +44,45 @@ export function Painel() {
     espera: espera.length,
     finalizados: finalizados.length,
   };
+
+  const carregarSabores = useCallback(async () => {
+    setFalhaSabores(false);
+    try {
+      setSabores(await buscarSabores());
+    } catch (e) {
+      if (e instanceof SessaoExpirada) {
+        router.replace("/entrar");
+        return;
+      }
+      setFalhaSabores(true);
+    }
+  }, [router]);
+
+  function abrirNovo() {
+    origemFoco.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSabores(null);
+    setNovoAberto(true);
+    void carregarSabores();
+  }
+
+  function fecharNovo() {
+    setNovoAberto(false);
+    origemFoco.current?.focus();
+  }
+
+  async function enviarNovo(p: NovoPedido) {
+    try {
+      return await enviarPedido(p);
+    } catch (e) {
+      if (e instanceof SessaoExpirada) router.replace("/entrar");
+      throw e;
+    }
+  }
+
+  function concluirNovo() {
+    fecharNovo();
+    void recarregar();
+  }
 
   /** Conflito (409) e pedido inexistente (404) só recarregam; outra falha recarrega e chega ao cartão. */
   async function agir(id: string, acao: Acao) {
@@ -93,9 +136,35 @@ export function Painel() {
         contadores={dados?.contadores ?? null}
         atrasadosPreparacao={contarAtrasados(preparacao)}
         atrasadosEspera={contarAtrasados(espera)}
-        onNovoPedido={() => setNovoAberto(true)}
+        onNovoPedido={abrirNovo}
       />
       <FaixaConexao semConexao={semConexao} />
+
+      {novoAberto &&
+        (sabores ? (
+          <FormNovoPedido
+            sabores={sabores}
+            enviar={enviarNovo}
+            onConcluido={concluirNovo}
+            onFechar={fecharNovo}
+          />
+        ) : (
+          <div className={styles.estadoSabores} role={falhaSabores ? "alert" : "status"}>
+            {falhaSabores ? (
+              <>
+                <p>Não foi possível carregar os sabores.</p>
+                <button type="button" onClick={() => void carregarSabores()}>
+                  Tentar de novo
+                </button>
+                <button type="button" onClick={fecharNovo}>
+                  Fechar
+                </button>
+              </>
+            ) : (
+              <p>Carregando sabores</p>
+            )}
+          </div>
+        ))}
 
       {dados === null ? (
         <main className={styles.carregando}>

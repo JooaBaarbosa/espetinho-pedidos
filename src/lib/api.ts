@@ -1,5 +1,5 @@
 import type { NovoPedido } from "./regras";
-import type { Acao, PainelResposta, Pedido } from "./tipos";
+import type { Acao, PainelResposta, Pedido, Sabor } from "./tipos";
 
 /** A sessão do aparelho acabou (qualquer 401 da API). */
 export class SessaoExpirada extends Error {
@@ -48,6 +48,13 @@ export async function buscarPainel(): Promise<PainelResposta> {
   const res = await requisitar("/api/pedidos");
   if (!res.ok) throw await erroDe(res);
   return (await res.json()) as PainelResposta;
+}
+
+/** Sabores ativos, na ordem de exibição. */
+export async function buscarSabores(): Promise<Sabor[]> {
+  const res = await requisitar("/api/sabores");
+  if (!res.ok) throw await erroDe(res);
+  return (await res.json()) as Sabor[];
 }
 
 export async function enviarPedido(p: NovoPedido): Promise<Pedido> {
