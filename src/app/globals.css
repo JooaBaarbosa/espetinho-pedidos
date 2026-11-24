@@ -1,0 +1,49 @@
+:root {
+  --madeira: #1c1512;
+  --papel: #f3ebdf;
+  --papel-escuro: #eadfce;
+  --linha: #dccdb9;
+  --brasa: #a93226;
+  --cobre: #b8966a;
+  --tinta: #1e1a17;
+  --suave: #5c524b;
+  --ok: #56703d;
+  --raio: 0.75rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--font-texto), system-ui, sans-serif;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
