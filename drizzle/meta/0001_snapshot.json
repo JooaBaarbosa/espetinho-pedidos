@@ -1,0 +1,251 @@
+{
+  "id": "8cafbfc0-29b9-4792-905c-1b60fee5bcfd",
+  "prevId": "1e5761ad-1a4d-45ef-a181-4b7737ed0555",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.config": {
+      "name": "config",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "tempo_max_min": {
+          "name": "tempo_max_min",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 15
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.itens_pedido": {
+      "name": "itens_pedido",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "pedido_id": {
+          "name": "pedido_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sabor_id": {
+          "name": "sabor_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "nome_sabor": {
+          "name": "nome_sabor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantidade": {
+          "name": "quantidade",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "itens_pedido_pedido_id_pedidos_id_fk": {
+          "name": "itens_pedido_pedido_id_pedidos_id_fk",
+          "tableFrom": "itens_pedido",
+          "columnsFrom": [
+            "pedido_id"
+          ],
+          "tableTo": "pedidos",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        },
+        "itens_pedido_sabor_id_sabores_id_fk": {
+          "name": "itens_pedido_sabor_id_sabores_id_fk",
+          "tableFrom": "itens_pedido",
+          "columnsFrom": [
+            "sabor_id"
+          ],
+          "tableTo": "sabores",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "itens_pedido_quantidade_check": {
+          "name": "itens_pedido_quantidade_check",
+          "value": "\"itens_pedido\".\"quantidade\" between 1 and 50"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.pedidos": {
+      "name": "pedidos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "cliente": {
+          "name": "cliente",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "status_pedido",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'preparacao'"
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "pronto_em": {
+          "name": "pronto_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finalizado_em": {
+          "name": "finalizado_em",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "pedidos_status_criado_idx": {
+          "name": "pedidos_status_criado_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "criado_em",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sabores": {
+      "name": "sabores",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "ordem": {
+          "name": "ordem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sabores_nome_unique": {
+          "name": "sabores_nome_unique",
+          "columns": [
+            "nome"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.status_pedido": {
+      "name": "status_pedido",
+      "schema": "public",
+      "values": [
+        "preparacao",
+        "espera",
+        "entregue",
+        "cancelado"
+      ]
+    }
+  },
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
