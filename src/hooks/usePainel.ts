@@ -29,6 +29,8 @@ export function usePainel(): {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let emVoo: Promise<void> | null = null;
     let deNovo = false;
+    /** Sessão expirada: para de buscar de vez e redireciona uma única vez. */
+    let encerrado = false;
 
     async function buscarUmaVez() {
       try {
@@ -40,7 +42,8 @@ export function usePainel(): {
         setSemConexao(false);
       } catch (e) {
         if (e instanceof SessaoExpirada) {
-          router.replace("/entrar");
+          if (!encerrado && ativo) router.replace("/entrar");
+          encerrado = true;
           return;
         }
         if (ativo) setSemConexao(true);
@@ -57,7 +60,7 @@ export function usePainel(): {
         do {
           deNovo = false;
           await buscarUmaVez();
-        } while (deNovo && ativo);
+        } while (deNovo && ativo && !encerrado);
       })().finally(() => {
         emVoo = null;
       });
@@ -71,9 +74,10 @@ export function usePainel(): {
 
     /** Busca agora e reinicia a contagem de 3 s até a próxima (cadeia de setTimeout). */
     async function ciclo() {
+      if (encerrado) return;
       await buscar();
       parar();
-      if (ativo && document.visibilityState !== "hidden") {
+      if (ativo && !encerrado && document.visibilityState !== "hidden") {
         timer = setTimeout(() => void ciclo(), INTERVALO_BUSCA_MS);
       }
     }

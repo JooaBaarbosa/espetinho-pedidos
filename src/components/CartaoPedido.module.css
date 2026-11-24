@@ -81,6 +81,14 @@
   font-size: 0.9375rem;
 }
 
+.falha {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid currentColor;
+  border-radius: 0.5rem;
+  font-weight: 700;
+}
+
 .acoes {
   display: flex;
   gap: 0.5rem;

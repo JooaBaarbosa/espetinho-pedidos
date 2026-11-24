@@ -19,8 +19,8 @@
   color: var(--cobre);
 }
 
+/* Atraso: borda clara e chama sobre o fundo madeira (fundo brasa cheio só no cartão atrasado). */
 .alerta {
-  background: var(--brasa);
   border-color: var(--papel);
   color: var(--papel);
 }
@@ -55,6 +55,7 @@
 
 .atraso {
   display: inline-flex;
+  color: var(--papel);
   align-items: center;
   gap: 0.25rem;
   font-family: var(--font-rotulo), sans-serif;

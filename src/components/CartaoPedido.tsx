@@ -24,6 +24,7 @@ type Props = {
 export function CartaoPedido({ pedido, agora, tempoMaxMin, onAcao }: Props) {
   const [confirmando, setConfirmando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [falhou, setFalhou] = useState(false);
   const botaoNao = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -36,8 +37,11 @@ export function CartaoPedido({ pedido, agora, tempoMaxMin, onAcao }: Props) {
 
   async function agir(acao: Acao) {
     setEnviando(true);
+    setFalhou(false);
     try {
       await onAcao(acao);
+    } catch {
+      setFalhou(true);
     } finally {
       setEnviando(false);
       setConfirmando(false);
@@ -69,6 +73,12 @@ export function CartaoPedido({ pedido, agora, tempoMaxMin, onAcao }: Props) {
 
       <p className={styles.itens}>{resumoItens(pedido.itens)}</p>
       <p className={styles.total}>Total: {totalEspetinhos(pedido.itens)}</p>
+
+      {falhou && (
+        <p role="alert" className={styles.falha}>
+          Não foi possível atualizar. Tente de novo.
+        </p>
+      )}
 
       {confirmando ? (
         <div className={styles.confirmacao}>

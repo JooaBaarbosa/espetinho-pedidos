@@ -64,6 +64,18 @@ describe("CartaoPedido", () => {
     expect(onAcao).toHaveBeenCalledWith("pronto");
   });
 
+  it("ação que falha mostra aviso no cartão e reabilita os botões; nova tentativa limpa o aviso", async () => {
+    const onAcao = vi.fn().mockRejectedValueOnce(new Error("500")).mockResolvedValueOnce(undefined);
+    render(<CartaoPedido pedido={pedido(60_000)} agora={AGORA} tempoMaxMin={15} onAcao={onAcao} />);
+    await userEvent.click(screen.getByRole("button", { name: "Pronto" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível atualizar. Tente de novo.");
+    expect(screen.getByRole("button", { name: "Pronto" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "Pronto" }));
+    expect(onAcao).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("Não foi possível atualizar. Tente de novo.")).not.toBeInTheDocument();
+  });
+
   it("Cancelar pede confirmação no cartão; só chama onAcao após Sim", async () => {
     const onAcao = vi.fn().mockResolvedValue(undefined);
     render(<CartaoPedido pedido={pedido(60_000)} agora={AGORA} tempoMaxMin={15} onAcao={onAcao} />);

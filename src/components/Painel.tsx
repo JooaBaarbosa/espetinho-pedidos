@@ -8,7 +8,7 @@ import { Finalizados } from "./Finalizados";
 import { IconeMarca } from "./IconeMarca";
 import { Topo } from "./Topo";
 import { usePainel } from "@/hooks/usePainel";
-import { executarAcao, SessaoExpirada } from "@/lib/api";
+import { ErroApi, executarAcao, SessaoExpirada } from "@/lib/api";
 import { estaAtrasado } from "@/lib/regras";
 import type { Acao, Pedido } from "@/lib/tipos";
 import styles from "./Painel.module.css";
@@ -41,7 +41,9 @@ export function Painel() {
     finalizados: finalizados.length,
   };
 
+  /** Conflito (409) e pedido inexistente (404) só recarregam; outra falha recarrega e chega ao cartão. */
   async function agir(id: string, acao: Acao) {
+    let falha: unknown = null;
     try {
       await executarAcao(id, acao);
     } catch (e) {
@@ -49,9 +51,11 @@ export function Painel() {
         router.replace("/entrar");
         return;
       }
-      // Rede ou pedido inexistente: a recarga abaixo mostra o estado real (ou a faixa sem conexão).
+      if (!(e instanceof ErroApi && e.status === 404)) falha = e;
     }
+    // Falha de rede: a própria recarga também falha e liga a faixa "Sem conexão".
     await recarregar();
+    if (falha) throw falha;
   }
 
   function cartoes(lista: Pedido[], vazio: string): ReactNode {

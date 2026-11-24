@@ -30,7 +30,7 @@ export function Topo({ contadores, atrasadosPreparacao, atrasadosEspera, onNovoP
       <div className={styles.botoes}>
         <button type="button" className={styles.novo} onClick={onNovoPedido}>
           <IconeMarca nome="espeto" tamanho={22} />
-          Novo pedido
+          <span className={styles.novoTexto}>Novo pedido</span>
         </button>
         <Link href="/configuracoes" className={styles.config}>
           <Settings aria-hidden="true" size={22} />
