@@ -7,7 +7,7 @@ const raiz = path.resolve(import.meta.dirname, "../..");
 const marca = (n: string) => path.join(raiz, "public", "marca", n);
 const app = (n: string) => path.join(raiz, "src", "app", n);
 
-// [arquivo, lado maior, medida usada]
+// Pares [arquivo, lado maior esperado em px]
 const comAlfa: Array<[string, number]> = [
   [marca("espeto.png"), 128],
   [marca("churrasqueira.png"), 128],
