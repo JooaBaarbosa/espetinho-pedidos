@@ -2,7 +2,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { proxy, config } from "@/proxy";
-import { COOKIE_SESSAO, criarToken } from "@/lib/sessao";
+import { COOKIE_SESSAO, criarToken, lerSessao, VALIDADE_SEG } from "@/lib/sessao";
 
 const SECRET = "segredo-de-teste-com-mais-de-32-caracteres";
 
@@ -39,6 +39,21 @@ describe("proxy", () => {
     const res = await proxy(req("/", await criarToken(SECRET)));
     expect(res.status).toBe(200);
     expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+  it("token com mais de 7 dias passa e renova o cookie por mais 30 dias", async () => {
+    const oitoDias = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    const res = await proxy(req("/api/pedidos", await criarToken(SECRET, oitoDias)));
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+    const cookie = res.cookies.get(COOKIE_SESSAO);
+    expect(cookie).toMatchObject({ httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: VALIDADE_SEG });
+    const sessao = await lerSessao(cookie!.value, SECRET);
+    expect(sessao!.iat).toBeGreaterThan(Date.now() / 1000 - 60);
+  });
+  it("token de 1 dia passa sem renovar o cookie", async () => {
+    const umDia = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const res = await proxy(req("/", await criarToken(SECRET, umDia)));
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+    expect(res.headers.get("set-cookie")).toBeNull();
   });
   it("token invalido redireciona", async () => {
     const res = await proxy(req("/", "lixo"));

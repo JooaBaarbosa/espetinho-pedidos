@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import {
   COOKIE_SESSAO,
   criarToken,
+  opcoesCookie,
   secretValido,
   senhaConfere,
-  VALIDADE_SEG,
 } from "@/lib/sessao";
 
 export async function POST(req: Request) {
@@ -25,12 +25,6 @@ export async function POST(req: Request) {
   }
 
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE_SESSAO, await criarToken(secret), {
-    httpOnly: true,
-    secure: process.env.COOKIE_INSEGURO !== "1",
-    sameSite: "lax",
-    path: "/",
-    maxAge: VALIDADE_SEG,
-  });
+  res.cookies.set(COOKIE_SESSAO, await criarToken(secret), opcoesCookie());
   return res;
 }
