@@ -16,10 +16,12 @@ afterEach(cleanup);
 type Criar = (nome: string) => Promise<unknown>;
 type Editar = (id: number, campos: Partial<Pick<Sabor, "nome" | "ativo" | "ordem">>) => Promise<unknown>;
 
-function montar(extra: { criar?: Mock<Criar>; editar?: Mock<Editar> } = {}) {
+function montar(
+  extra: { criar?: Mock<Criar>; editar?: Mock<Editar>; aoMudar?: Mock<() => Promise<void>> } = {},
+) {
   const criar = extra.criar ?? vi.fn<Criar>().mockResolvedValue(undefined);
   const editar = extra.editar ?? vi.fn<Editar>().mockResolvedValue(undefined);
-  const aoMudar = vi.fn().mockResolvedValue(undefined);
+  const aoMudar = extra.aoMudar ?? vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
   render(<EditorSabores inicial={SABORES} api={{ criar, editar }} aoMudar={aoMudar} />);
   return { criar, editar, aoMudar };
 }
@@ -77,6 +79,30 @@ describe("EditorSabores", () => {
     await u.type(screen.getByLabelText("Novo sabor"), "Carne");
     await u.click(screen.getByRole("button", { name: "Adicionar" }));
     expect(await screen.findByText("Sabor já existe")).toBeInTheDocument();
+  });
+
+  it("troca de ordem com falha na segunda gravação recarrega a lista e mostra o erro", async () => {
+    const u = userEvent.setup();
+    const editar = vi
+      .fn<Editar>()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new ErroApi("Sabor não encontrado", 404));
+    const { aoMudar } = montar({ editar });
+    await u.click(screen.getByRole("button", { name: "Mover Carne para baixo" }));
+    expect(await screen.findByText("Sabor não encontrado")).toBeInTheDocument();
+    expect(aoMudar).toHaveBeenCalledTimes(1);
+  });
+
+  it("adicionar com lista que não recarrega limpa o campo e avisa", async () => {
+    const u = userEvent.setup();
+    const aoMudar = vi.fn<() => Promise<void>>().mockRejectedValue(new TypeError("fetch"));
+    const { criar } = montar({ aoMudar });
+    await u.type(screen.getByLabelText("Novo sabor"), "Queijo");
+    await u.click(screen.getByRole("button", { name: "Adicionar" }));
+    expect(await screen.findByText("Salvo, mas não foi possível atualizar a lista.")).toBeInTheDocument();
+    expect(screen.queryByText(/Não foi possível salvar/)).not.toBeInTheDocument();
+    expect(criar).toHaveBeenCalledWith("Queijo");
+    expect(screen.getByLabelText("Novo sabor")).toHaveValue("");
   });
 
   it("renomear salva o nome novo", async () => {

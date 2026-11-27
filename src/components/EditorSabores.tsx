@@ -26,22 +26,29 @@ export function EditorSabores({ inicial, api, aoMudar }: Props) {
   const [editando, setEditando] = useState<number | null>(null);
   const [nomeEditado, setNomeEditado] = useState("");
 
-  /** Roda uma alteração; mostra o erro junto do controle `chave` e devolve se deu certo. */
+  /**
+   * Roda uma alteração e recarrega a lista mesmo se a escrita falhar (uma troca de ordem pode ter
+   * gravado só metade). Mostra o erro junto do controle `chave` e devolve se a escrita deu certo.
+   */
   async function executar(chave: string | number, tarefa: () => Promise<void>): Promise<boolean> {
     setSalvando(true);
     setErros({});
+    let escreveu = false;
+    let mensagem: string | null = null;
     try {
       await tarefa();
-      await aoMudar?.();
-      return true;
+      escreveu = true;
     } catch (e) {
-      const mensagem =
-        e instanceof ErroApi ? e.message : "Não foi possível salvar. Verifique a conexão.";
-      setErros({ [chave]: mensagem });
-      return false;
-    } finally {
-      setSalvando(false);
+      mensagem = e instanceof ErroApi ? e.message : "Não foi possível salvar. Verifique a conexão.";
     }
+    try {
+      await aoMudar?.();
+    } catch {
+      if (escreveu) mensagem = "Salvo, mas não foi possível atualizar a lista.";
+    }
+    if (mensagem) setErros({ [chave]: mensagem });
+    setSalvando(false);
+    return escreveu;
   }
 
   async function adicionar(e: FormEvent) {
