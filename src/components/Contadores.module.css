@@ -65,6 +65,33 @@
   text-transform: uppercase;
 }
 
+/* Celular estreito: quatro contadores em ~88 px cada. Sem isto "PREPARAÇÃO" era cortado e
+   "1 atrasado" quebrava em duas linhas. A churrasqueira do rótulo sai (a aba e a coluna a mostram). */
+@media (max-width: 459px) {
+  .contadores {
+    gap: 0.25rem;
+  }
+
+  .contador {
+    padding: 0.4375rem 0.375rem;
+  }
+
+  .rotulo {
+    letter-spacing: 0.02em;
+  }
+
+  .rotulo > [aria-hidden="true"] {
+    display: none !important;
+  }
+
+  .atraso {
+    gap: 0.125rem;
+    font-size: 0.6875rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+}
+
 @media (min-width: 768px) {
   .contadores {
     gap: 0.5rem;

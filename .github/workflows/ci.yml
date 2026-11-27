@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:19.0-alpine3.24
+        env:
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: espetinho_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d espetinho_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgres://postgres:dev@localhost:5432/espetinho_test
+      DATABASE_URL_TEST: postgres://postgres:dev@localhost:5432/espetinho_test
+      APP_SENHA: dev
+      SESSION_SECRET: ci-session-secret-com-mais-de-32-caracteres
+      COOKIE_INSEGURO: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: pnpm/action-setup@v6.1.1
+
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 26.13.1
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm test:unit
+
+      - run: pnpm db:migrate
+
+      - run: pnpm test:db
+
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - run: pnpm test:e2e
