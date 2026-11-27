@@ -70,3 +70,62 @@ export async function executarAcao(id: string, acao: Acao): Promise<"ok" | "conf
   if (!res.ok) throw await erroDe(res);
   return "ok";
 }
+
+/** Todos os sabores (ativos e inativos), na ordem de exibição. */
+export async function buscarTodosSabores(): Promise<Sabor[]> {
+  const res = await requisitar("/api/sabores?todos=1");
+  if (!res.ok) throw await erroDe(res);
+  return (await res.json()) as Sabor[];
+}
+
+export async function criarSabor(nome: string): Promise<Sabor> {
+  const res = await postJson("/api/sabores", { nome });
+  if (!res.ok) throw await erroDe(res);
+  return (await res.json()) as Sabor;
+}
+
+export async function editarSabor(
+  id: number,
+  campos: Partial<Pick<Sabor, "nome" | "ativo" | "ordem">>,
+): Promise<Sabor> {
+  const res = await requisitar(`/api/sabores/${id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(campos),
+  });
+  if (!res.ok) throw await erroDe(res);
+  return (await res.json()) as Sabor;
+}
+
+export async function buscarConfig(): Promise<{ tempoMaxMin: number }> {
+  const res = await requisitar("/api/config");
+  if (!res.ok) throw await erroDe(res);
+  return (await res.json()) as { tempoMaxMin: number };
+}
+
+export async function salvarConfig(tempoMaxMin: number): Promise<void> {
+  const res = await requisitar("/api/config", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ tempoMaxMin }),
+  });
+  if (!res.ok) throw await erroDe(res);
+}
+
+export async function sair(): Promise<void> {
+  const res = await postJson("/api/sair");
+  if (!res.ok) throw await erroDe(res);
+}
+
+/** `true` com a senha certa, `false` com 401. Não passa pela regra de sessão expirada. */
+export async function entrar(senha: string): Promise<boolean> {
+  const res = await fetch("/api/entrar", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ senha }),
+  });
+  if (res.status === 401) return false;
+  if (!res.ok) throw await erroDe(res);
+  return true;
+}

@@ -1,5 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buscarPainel, buscarSabores, enviarPedido, executarAcao, SessaoExpirada } from "@/lib/api";
+import {
+  buscarConfig,
+  buscarPainel,
+  buscarSabores,
+  buscarTodosSabores,
+  criarSabor,
+  editarSabor,
+  entrar,
+  enviarPedido,
+  ErroApi,
+  executarAcao,
+  sair,
+  salvarConfig,
+  SessaoExpirada,
+} from "@/lib/api";
 import type { PainelResposta } from "@/lib/tipos";
 
 function resposta(status: number, corpo: unknown): Response {
@@ -98,5 +112,68 @@ describe("api", () => {
     await expect(
       enviarPedido({ id: "a", cliente: "", itens: [{ saborId: 1, quantidade: 1 }] }),
     ).rejects.toThrow("Informe o nome do cliente");
+  });
+
+  it("entrar devolve true em 200 e envia a senha por POST", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resposta(200, { ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(entrar("dev")).resolves.toBe(true);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/entrar");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST", body: '{"senha":"dev"}' });
+  });
+
+  it("entrar devolve false em 401, sem lançar SessaoExpirada", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta(401, { erro: "Senha incorreta" })));
+    await expect(entrar("x")).resolves.toBe(false);
+  });
+
+  it("entrar com outro erro lança ErroApi", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta(500, { erro: "Configuração ausente" })));
+    await expect(entrar("x")).rejects.toBeInstanceOf(ErroApi);
+  });
+
+  it("buscarTodosSabores pede todos=1", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resposta(200, []));
+    vi.stubGlobal("fetch", fetchMock);
+    await buscarTodosSabores();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/sabores?todos=1");
+  });
+
+  it("criarSabor envia o nome e erro 400 vira ErroApi com a mensagem", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resposta(400, { erro: "Sabor já existe" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(criarSabor("Carne")).rejects.toMatchObject({ message: "Sabor já existe", status: 400 });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST", body: '{"nome":"Carne"}' });
+  });
+
+  it("editarSabor usa PATCH no id", async () => {
+    const sabor = { id: 3, nome: "Coração", ativo: false, ordem: 3 };
+    const fetchMock = vi.fn().mockResolvedValue(resposta(200, sabor));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(editarSabor(3, { ativo: false })).resolves.toEqual(sabor);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/sabores/3");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "PATCH", body: '{"ativo":false}' });
+  });
+
+  it("buscarConfig e salvarConfig", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resposta(200, { tempoMaxMin: 20 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(buscarConfig()).resolves.toEqual({ tempoMaxMin: 20 });
+    await salvarConfig(20);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe("/api/config");
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ method: "PUT", body: '{"tempoMaxMin":20}' });
+  });
+
+  it("salvarConfig fora do intervalo lança ErroApi", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(resposta(400, { erro: "Tempo máximo inválido" })));
+    await expect(salvarConfig(500)).rejects.toBeInstanceOf(ErroApi);
+  });
+
+  it("sair faz POST em /api/sair", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(resposta(200, { ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    await sair();
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/sair");
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ method: "POST" });
   });
 });

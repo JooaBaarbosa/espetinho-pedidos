@@ -1,0 +1,63 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.rotulo {
+  font-family: var(--font-rotulo), sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--suave);
+}
+
+.campo {
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+  background: #fffaf2;
+  border: 2px solid var(--madeira);
+  border-radius: var(--raio);
+  font-size: 1.125rem;
+}
+
+.campo:focus-visible {
+  outline: 3px solid var(--cobre);
+  outline-offset: 2px;
+}
+
+.erro {
+  margin: 0;
+  color: var(--brasa);
+  font-weight: 700;
+}
+
+.botao {
+  min-height: 3.25rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--madeira);
+  color: var(--papel);
+  border: 2px solid var(--madeira);
+  border-radius: var(--raio);
+  font-family: var(--font-rotulo), sans-serif;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.botao:focus-visible {
+  outline: 3px solid var(--cobre);
+  outline-offset: 2px;
+}
+
+.botao:disabled {
+  border-color: var(--linha);
+  background: var(--linha);
+  color: var(--suave);
+  cursor: default;
+}
