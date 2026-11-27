@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { proxy, config } from "@/proxy";
 import { COOKIE_SESSAO, criarToken, lerSessao, VALIDADE_SEG } from "@/lib/sessao";
 
@@ -15,9 +15,11 @@ function req(path: string, token?: string) {
 describe("proxy", () => {
   beforeEach(() => {
     process.env.SESSION_SECRET = SECRET;
+    vi.stubEnv("COOKIE_INSEGURO", "");
   });
   afterEach(() => {
     delete process.env.SESSION_SECRET;
+    vi.unstubAllEnvs();
   });
 
   it("pagina sem cookie redireciona para /entrar", async () => {
