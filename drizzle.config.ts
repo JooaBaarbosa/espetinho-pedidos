@@ -4,5 +4,6 @@ export default defineConfig({
   dialect: 'postgresql',
   schema: './src/db/schema.ts',
   out: './drizzle',
-  dbCredentials: { url: process.env.DATABASE_URL! },
+  // No Neon, migrações vão pela conexão direta (sem o pooler); fora dele, DATABASE_URL.
+  dbCredentials: { url: process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL! },
 })

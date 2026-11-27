@@ -45,29 +45,32 @@ docker compose rm -sf app-e2e    # derruba o app; na próxima rodada ele é migr
 
 1. **GitHub.** Crie um repositório (privado ou público) e envie o código.
 2. **Vercel.** Em vercel.com, *Add New > Project*, importe o repositório. O framework é detectado como Next.js.
-3. **Banco Neon.** No projeto da Vercel, aba *Storage* (Marketplace), crie um banco **Neon Postgres** e ligue ao projeto. A integração preenche `DATABASE_URL` nos ambientes.
-4. **Variáveis de ambiente.** Em *Settings > Environment Variables*, crie:
-   - `APP_SENHA`: a senha de acesso ao painel, combinada com quem usa o carrinho;
+3. **Banco Neon.** No projeto da Vercel, aba *Storage* (Marketplace), crie um banco **Neon Postgres** e ligue ao projeto. A integração preenche duas variáveis:
+   - `DATABASE_URL`: conexão pelo pooler do Neon, usada pelo app;
+   - `DATABASE_URL_UNPOOLED`: conexão direta, usada pelas migrações (`drizzle.config.ts` prefere esta quando existe).
+4. **Proteger o banco de produção nos Previews.** Cada push em outro branch gera um deploy de Preview, e o build roda as migrações. Escolha uma das opções:
+   - **Recomendado:** na integração do Neon, ative a criação de um branch de banco para cada deploy de Preview. Cada Preview migra e usa a própria cópia, nunca o banco de produção;
+   - ou, em *Settings > Environment Variables*, deixe `DATABASE_URL` e `DATABASE_URL_UNPOOLED` só no ambiente **Production**. Nesse caso o build de Preview falha no passo de migração, o que é o esperado: ele nunca toca o banco de produção.
+5. **Variáveis de ambiente.** Em *Settings > Environment Variables*, crie:
+   - `APP_SENHA`: a senha de acesso ao painel, combinada com quem usa o carrinho. Use uma senha forte (frase longa ou várias palavras aleatórias): ela é a única barreira do app na internet;
    - `SESSION_SECRET`: um segredo longo e aleatório (no mínimo 32 caracteres). Gere com:
 
      ```bash
      openssl rand -base64 48
      ```
 
+   - `ENABLE_EXPERIMENTAL_COREPACK` com o valor `1`: faz a Vercel usar a versão do pnpm fixada em `packageManager` no `package.json`.
+
    Não defina `COOKIE_INSEGURO` em produção: ele só existe para os testes em http.
-5. **Build Command.** Em *Settings > Build and Deployment*, troque o Build Command para:
-
-   ```bash
-   pnpm db:migrate && pnpm build
-   ```
-
-   Assim as migrações (tabelas e sabores iniciais) rodam no Neon a cada deploy, antes do build.
-6. **Deploy.** Faça o primeiro deploy e confira se `/entrar` abre e a senha funciona.
-7. **Domínio próprio.** O endereço `*.vercel.app` não é o endereço final. Compre ou aponte um domínio em *Settings > Domains* e siga as instruções de DNS da Vercel.
+6. **Versão do Node.** O projeto fixa o Node 26.13.1 em `engines.node`. Em *Settings > Build and Deployment > Node.js Version*, escolha 26.x se estiver disponível.
+7. **Migrações.** Não é preciso mexer no Build Command: o `vercel.json` já define `pnpm db:migrate && pnpm build`. As migrações (tabelas e sabores iniciais) rodam no Neon a cada deploy, antes do build.
+8. **Deploy.** Faça o primeiro deploy e confira se `/entrar` abre e a senha funciona.
+9. **Limite de tentativas de senha (opcional).** Em *Firewall > Rules*, crie uma regra de rate limit para o caminho `/api/entrar` (por exemplo, poucas tentativas por minuto por IP). Isso dificulta adivinhar a senha por força bruta.
+10. **Domínio próprio.** O endereço `*.vercel.app` não é o endereço final. Compre ou aponte um domínio em *Settings > Domains* e siga as instruções de DNS da Vercel.
 
 ### Trocar a senha
 
-Mude `APP_SENHA` nas variáveis de ambiente da Vercel e faça um novo deploy (*Deployments > Redeploy*). Quem já está conectado continua conectado até a sessão expirar (30 dias) ou até usar "Sair deste aparelho". Para desconectar todos os aparelhos na hora, troque também o `SESSION_SECRET`.
+Mude `APP_SENHA` nas variáveis de ambiente da Vercel e faça um novo deploy (*Deployments > Redeploy*). Quem já está conectado continua conectado: a sessão vale 30 dias e é renovada sozinha quando o aparelho usa o app depois de 7 dias, então ela só termina se o aparelho passar semanas sem abrir o app ou se alguém tocar em "Sair deste aparelho". Para desconectar todos os aparelhos na hora, troque também o `SESSION_SECRET`.
 
 ### Editar sabores e tempo máximo
 
