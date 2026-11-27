@@ -81,4 +81,5 @@ No app, toque no ícone de engrenagem (Configurações):
 - TypeScript fica em 6.0.3 (última 6.x estável) em vez de 7.0.2: o `typescript-eslint` 8.73 ainda não suporta o TS 7 e o `eslint` quebra ao carregar. Voltar ao 7 quando o `typescript-eslint` suportar.
 - Node 26 não traz mais o corepack; o container o instala na hora de subir e ativa o pnpm fixado em `packageManager`.
 - `vite-tsconfig-paths` foi removido: o Vite resolve os `paths` do tsconfig nativamente (`resolve.tsconfigPaths: true` no `vitest.config.ts`) e o plugin avisava que era redundante.
-- `pnpm-workspace.yaml` libera os scripts de build do `esbuild` e do `sharp` e isenta `lucide-react@1.79.0` da idade mínima de release do pnpm (foi publicada há menos de 1 dia).
+- `pnpm-workspace.yaml` libera os scripts de build do `esbuild` e do `sharp`.
+- `sharp` fica em `devDependencies`: só o script `marca` (`scripts/preparar-icones.ts`) o usa. A otimização de imagens do `next/image` usa o `sharp` que o próprio `next` traz como dependência opcional (e, na Vercel, o serviço de imagens da plataforma).
