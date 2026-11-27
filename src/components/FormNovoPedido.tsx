@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { IconeMarca } from "./IconeMarca";
 import { SeletorQuantidade } from "./SeletorQuantidade";
 import { ErroApi } from "@/lib/api";
+import { gerarId } from "@/lib/uuid";
 import type { NovoPedido } from "@/lib/regras";
 import type { Sabor } from "@/lib/tipos";
 import styles from "./FormNovoPedido.module.css";
@@ -21,7 +22,7 @@ type Props = {
 const AVISO_CONEXAO = "Não foi possível anotar. Verifique a conexão.";
 
 export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar, onRecarregarSabores }: Props) {
-  const [id, setId] = useState(() => crypto.randomUUID());
+  const [id, setId] = useState(gerarId);
   const [cliente, setCliente] = useState("");
   const [quantidades, setQuantidades] = useState<Record<number, number>>({});
   const [enviando, setEnviando] = useState(false);
@@ -95,7 +96,7 @@ export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar, onRecar
       emEnvio.current = false;
       setEnviando(false);
     }
-    setId(crypto.randomUUID());
+    setId(gerarId());
     setCliente("");
     setQuantidades({});
     onConcluido();
