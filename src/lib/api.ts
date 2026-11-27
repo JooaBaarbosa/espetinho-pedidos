@@ -20,9 +20,29 @@ export class ErroApi extends Error {
   }
 }
 
-/** Único ponto que chama `fetch`: aplica a regra 401 → `SessaoExpirada`. Erro de rede propaga. */
+/** Sem resposta neste prazo, a requisição é abortada e rejeita como erro de rede. */
+const TEMPO_LIMITE_MS = 8000;
+
+/**
+ * Sinal com o tempo limite, somado ao sinal de quem chama, se houver. Equivale a
+ * `AbortSignal.timeout`, mas sobre `setTimeout` (que os testes controlam com relógio falso).
+ */
+function sinalComLimite(sinal?: AbortSignal | null): AbortSignal {
+  const controle = new AbortController();
+  setTimeout(
+    () => controle.abort(new DOMException("Tempo limite da requisição", "TimeoutError")),
+    TEMPO_LIMITE_MS,
+  );
+  const limite = controle.signal;
+  return sinal ? AbortSignal.any([sinal, limite]) : limite;
+}
+
+/**
+ * Único ponto (com `entrar`) que chama `fetch`: aplica a regra 401 → `SessaoExpirada`.
+ * Erro de rede e tempo limite propagam como estão (não são `ErroApi`).
+ */
 async function requisitar(url: string, init?: RequestInit): Promise<Response> {
-  const res = await fetch(url, { cache: "no-store", ...init });
+  const res = await fetch(url, { cache: "no-store", ...init, signal: sinalComLimite(init?.signal) });
   if (res.status === 401) throw new SessaoExpirada();
   return res;
 }
@@ -124,6 +144,7 @@ export async function entrar(senha: string): Promise<boolean> {
     cache: "no-store",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ senha }),
+    signal: sinalComLimite(),
   });
   if (res.status === 401) return false;
   if (!res.ok) throw await erroDe(res);

@@ -169,6 +169,48 @@ describe("api", () => {
     await expect(salvarConfig(500)).rejects.toBeInstanceOf(ErroApi);
   });
 
+  describe("tempo limite", () => {
+    /** fetch que só termina quando o sinal aborta, rejeitando com o motivo do aborto. */
+    function fetchPendurado() {
+      return vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, rejeitar) => {
+            init?.signal?.addEventListener("abort", () => rejeitar(init.signal?.reason));
+          }),
+      );
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("requisição sem resposta rejeita depois de 8 s como erro de rede", async () => {
+      vi.useFakeTimers();
+      vi.stubGlobal("fetch", fetchPendurado());
+      const erro = buscarPainel().catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(7999);
+      let terminou = false;
+      void erro.then(() => (terminou = true));
+      await Promise.resolve();
+      expect(terminou).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      const e = await erro;
+      expect(e).toMatchObject({ name: "TimeoutError" });
+      expect(e).not.toBeInstanceOf(SessaoExpirada);
+      expect(e).not.toBeInstanceOf(ErroApi);
+    });
+
+    it("entrar também tem tempo limite", async () => {
+      vi.useFakeTimers();
+      vi.stubGlobal("fetch", fetchPendurado());
+      const erro = entrar("dev").catch((e: unknown) => e);
+      await vi.advanceTimersByTimeAsync(8000);
+      const e = await erro;
+      expect(e).toMatchObject({ name: "TimeoutError" });
+      expect(e).not.toBeInstanceOf(ErroApi);
+    });
+  });
+
   it("sair faz POST em /api/sair", async () => {
     const fetchMock = vi.fn().mockResolvedValue(resposta(200, { ok: true }));
     vi.stubGlobal("fetch", fetchMock);
