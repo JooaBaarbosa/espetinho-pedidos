@@ -144,9 +144,28 @@ Tokens copiados de `brasamiga/app/static/css/site.css`:
 Tipografia via `next/font/google`: **Anton** (títulos, caixa alta), **Oswald** (rótulos,
 nomes de clientes, contadores), **Lato** (texto). Ícones: `lucide-react` (SVG), sem emojis.
 
-Favicon e ícones de app: recorte da cabeça de boi de `conteudo/logo/LOGO-03.png`
-(`app/icon.png`, `app/apple-icon.png`) + `manifest.ts` para instalar na tela inicial
-do celular. Sem travessões nos textos da interface.
+Sem travessões nos textos da interface.
+
+### 4.1 Ícones da marca (`conteudo/icons/`, enviados pelo dono)
+
+Os `DESTAQUES-0x.png` são desenhos brancos sobre fundo brasa (2251x4000). Na implementação,
+um script (`scripts/preparar-icones.ts`, com `sharp`) recorta o desenho e gera versões
+otimizadas em `public/marca/`:
+
+| Arquivo do dono | Desenho | Uso no app |
+|---|---|---|
+| `DESTAQUES-01.png` | Cabeça de boi | Favicon e ícones de app (`src/app/icon.png`, `apple-icon.png`, 192 e 512 px do `manifest.ts`), quadrado com fundo brasa |
+| `DESTAQUES-02.png` | Espeto | Botão e painel "Novo pedido"; estado vazio "Nenhum pedido em preparação" |
+| `DESTAQUES-03.png` | Churrasqueira | Cabeçalho da coluna Preparação e seu contador |
+| `DESTAQUES-05.png` | Chama | Marca do alerta de atraso no cartão e no contador (no lugar do `AlertTriangle`) |
+| `TAG-PARA-FOTOS-PNG-SEM-FUNDO-01.png` | Logo completo, fundo transparente, texto preto | Tela de entrada (sobre fundo papel) |
+| `TAG-PARA-FOTOS-PNG-SEM-FUNDO-02.png` | Tag branca com logo | Não usado na v1 |
+
+Espeto, churrasqueira e chama viram PNG branco com fundo transparente, aplicados como
+`mask-image` para herdar a cor do contexto (`currentColor`). Os demais ícones de interface
+(mais, menos, configurações, sair, setas, conexão) vêm do `lucide-react`.
+
+O topo usa `conteudo/logo/LOGO-03.png` (logo branco) recortado sobre fundo transparente.
 
 ## 5. Dados (Postgres via Drizzle)
 
@@ -162,7 +181,21 @@ config         id int PK = 1, tempo_max_min int default 15
 ```
 
 Índice em `pedidos(status, criado_em)`. A migração inicial cria a linha de `config` e os
-sabores iniciais lidos do cardápio do dono (transcritos na implementação).
+sabores iniciais transcritos de `conteudo/cardapio/CARDAPIO-01.png`, nesta ordem:
+
+1. Carne
+2. Frango
+3. Linguiça apimentada
+4. Misto
+5. Kafta sem queijo
+6. Kafta com queijo
+7. Coração
+8. Medalhão de carne
+9. Medalhão de frango
+10. Queijo coalho
+
+"Medalhão (carne/frango)" vira dois sabores para a churrasqueira saber qual preparar.
+Os preços do cardápio não entram na v1 (ver seção 13).
 
 ## 6. Regras de negócio (módulo puro `src/lib/regras.ts`)
 
@@ -220,6 +253,9 @@ Erros: `400` validação (mensagem em português), `401` sem sessão, `404` pedi
 espetinho-pedidos/
   conteudo/cardapio/      cardápio do dono (foto, PDF ou cardapio.txt)
   conteudo/logo/          logos Brasamiga
+  conteudo/icons/         ícones da marca enviados pelo dono
+  scripts/preparar-icones.ts  gera public/marca/ e os ícones do app a partir de conteudo/
+  public/marca/           ícones e logo otimizados (gerados, commitados)
   src/app/                páginas (/, /entrar, /configuracoes, /privacidade, /termos), api/
   src/components/         Topo, Contadores, CartaoPedido, NovoPedido, Finalizados...
   src/lib/regras.ts       regras puras
@@ -258,6 +294,6 @@ espetinho-pedidos/
 
 ## 13. Fora do escopo (v1)
 
-Preços, caixa ou pagamento; editar um pedido já anotado (cancela e anota de novo);
+Preços (existem no cardápio, mas o app não calcula valor), caixa ou pagamento; editar um pedido já anotado (cancela e anota de novo);
 desfazer uma entrega; relatórios de dias anteriores; som e notificação push no atraso;
 impressão de comanda; vários carrinhos ou usuários com permissões diferentes.

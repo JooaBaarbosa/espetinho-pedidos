@@ -1,0 +1,31 @@
+.rodape {
+  padding: 1.5rem 1rem calc(1.5rem + env(safe-area-inset-bottom));
+  border-top: 2px solid var(--linha);
+}
+
+.links {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border-radius: var(--raio);
+  color: var(--suave);
+  font-size: 1rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.links a:hover {
+  color: var(--tinta);
+}
+
+.links a:focus-visible {
+  outline: 3px solid var(--brasa);
+  outline-offset: 2px;
+}

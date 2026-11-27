@@ -1,0 +1,78 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.principal {
+  display: grid;
+  flex: 1;
+  align-content: start;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-self: start;
+  min-height: 2.75rem;
+  color: var(--tinta);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.voltar:focus-visible,
+.sair:focus-visible {
+  outline: 3px solid var(--brasa);
+  outline-offset: 2px;
+}
+
+.titulo {
+  margin: 0;
+  font-family: var(--font-titulo), sans-serif;
+  font-size: 2rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.erro {
+  margin: 0;
+  color: var(--brasa);
+  font-weight: 700;
+}
+
+.sessao {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding-top: 1rem;
+  border-top: 2px solid var(--linha);
+}
+
+.sair {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 2px solid var(--madeira);
+  border-radius: var(--raio);
+  font-family: var(--font-rotulo), sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sair:hover {
+  background: var(--papel-escuro);
+}

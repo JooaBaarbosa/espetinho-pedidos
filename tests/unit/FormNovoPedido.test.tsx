@@ -1,0 +1,227 @@
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { FormNovoPedido } from "@/components/FormNovoPedido";
+import { ErroApi } from "@/lib/api";
+import type { Sabor } from "@/lib/tipos";
+
+const SABORES: Sabor[] = [
+  { id: 1, nome: "Carne", ativo: true, ordem: 1 },
+  { id: 2, nome: "Frango", ativo: true, ordem: 2 },
+];
+
+afterEach(cleanup);
+
+function montar(enviar = vi.fn().mockResolvedValue({})) {
+  const onConcluido = vi.fn();
+  const onFechar = vi.fn();
+  render(
+    <FormNovoPedido
+      sabores={SABORES}
+      enviar={enviar}
+      onConcluido={onConcluido}
+      onFechar={onFechar}
+      onRecarregarSabores={vi.fn()}
+    />,
+  );
+  return { enviar, onConcluido, onFechar };
+}
+
+describe("FormNovoPedido", () => {
+  it("abre como diálogo, com foco no nome e Anotar desabilitado", () => {
+    montar();
+    const dialogo = screen.getByRole("dialog", { name: "Novo pedido" });
+    expect(dialogo).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByLabelText("Nome do cliente")).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Anotar" })).toBeDisabled();
+  });
+
+  it("marcar sabor mostra o seletor com 1 e total no singular", async () => {
+    const u = userEvent.setup();
+    montar();
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    expect(screen.queryByRole("button", { name: "Aumentar Carne" })).not.toBeInTheDocument();
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    expect(screen.getByRole("button", { name: "Aumentar Carne" })).toBeInTheDocument();
+    expect(screen.getByText("Total: 1 espetinho")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Anotar" })).toBeEnabled();
+  });
+
+  it("soma quantidades: Carne 3 e Frango 1 dão Total: 4 espetinhos", async () => {
+    const u = userEvent.setup();
+    montar();
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Aumentar Carne" }));
+    await u.click(screen.getByRole("button", { name: "Aumentar Carne" }));
+    await u.click(screen.getByRole("checkbox", { name: "Frango" }));
+    expect(screen.getByText("Total: 4 espetinhos")).toBeInTheDocument();
+  });
+
+  it("limites: Diminuir em 1 fica em 1 e Aumentar em 50 fica em 50", async () => {
+    const u = userEvent.setup();
+    montar();
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Diminuir Carne" }));
+    expect(screen.getByText("Total: 1 espetinho")).toBeInTheDocument();
+    for (let i = 0; i < 55; i++) await u.click(screen.getByRole("button", { name: "Aumentar Carne" }));
+    expect(screen.getByText("Total: 50 espetinhos")).toBeInTheDocument();
+  });
+
+  it("desmarcar remove o item", async () => {
+    const u = userEvent.setup();
+    montar();
+    await u.type(screen.getByLabelText("Nome do cliente"), "Ana");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    expect(screen.queryByRole("button", { name: "Aumentar Carne" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Anotar" })).toBeDisabled();
+  });
+
+  it("nome só com espaços mantém Anotar desabilitado", async () => {
+    const u = userEvent.setup();
+    montar();
+    await u.type(screen.getByLabelText("Nome do cliente"), "   ");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    expect(screen.getByRole("button", { name: "Anotar" })).toBeDisabled();
+  });
+
+  it("enviar recebe id, cliente e itens; sucesso chama onConcluido e limpa o formulário", async () => {
+    const u = userEvent.setup();
+    const { enviar, onConcluido } = montar();
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Aumentar Carne" }));
+    await u.click(screen.getByRole("button", { name: "Aumentar Carne" }));
+    await u.click(screen.getByRole("checkbox", { name: "Frango" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    expect(enviar).toHaveBeenCalledTimes(1);
+    expect(enviar).toHaveBeenCalledWith({
+      id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      cliente: "João",
+      itens: [
+        { saborId: 1, quantidade: 3 },
+        { saborId: 2, quantidade: 1 },
+      ],
+    });
+    await waitFor(() => expect(onConcluido).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText("Nome do cliente")).toHaveValue("");
+    expect(screen.queryByText(/^Total:/)).not.toBeInTheDocument();
+  });
+
+  it("toque duplo com envio pendente chama enviar uma vez", async () => {
+    const u = userEvent.setup();
+    const enviar = vi.fn().mockReturnValue(new Promise(() => {}));
+    montar(enviar);
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.dblClick(screen.getByRole("button", { name: "Anotar" }));
+    expect(enviar).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Anotar" })).toBeDisabled();
+  });
+
+  it("falha: mostra erro e Tentar de novo reenvia o mesmo id", async () => {
+    const u = userEvent.setup();
+    const enviar = vi.fn().mockRejectedValueOnce(new Error("rede")).mockResolvedValue({});
+    const { onConcluido } = montar(enviar);
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    expect(await screen.findByText("Não foi possível anotar. Verifique a conexão.")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Tentar de novo" }));
+    await waitFor(() => expect(onConcluido).toHaveBeenCalledTimes(1));
+    expect(enviar).toHaveBeenCalledTimes(2);
+    expect(enviar.mock.calls[1]?.[0].id).toBe(enviar.mock.calls[0]?.[0].id);
+  });
+
+  it("recusa 400: mostra a mensagem do servidor e Atualizar sabores recarrega mantendo nome e itens ativos", async () => {
+    const u = userEvent.setup();
+    const enviar = vi.fn().mockRejectedValueOnce(new ErroApi("Sabor indisponível", 400)).mockResolvedValue({});
+    const onRecarregarSabores = vi.fn();
+    const props = { enviar, onConcluido: vi.fn(), onFechar: vi.fn(), onRecarregarSabores };
+    const { rerender } = render(<FormNovoPedido sabores={SABORES} {...props} />);
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Aumentar Carne" }));
+    await u.click(screen.getByRole("checkbox", { name: "Frango" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sabor indisponível");
+    expect(screen.queryByText("Não foi possível anotar. Verifique a conexão.")).not.toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Atualizar sabores" }));
+    expect(onRecarregarSabores).toHaveBeenCalledTimes(1);
+
+    // Painel entrega a lista nova, sem o Frango desativado.
+    rerender(<FormNovoPedido sabores={[SABORES[0]!]} {...props} />);
+    expect(screen.getByLabelText("Nome do cliente")).toHaveValue("João");
+    expect(screen.getByRole("checkbox", { name: "Carne" })).toBeChecked();
+    expect(screen.getByText("Total: 2 espetinhos")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    expect(enviar).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cliente: "João", itens: [{ saborId: 1, quantidade: 2 }] }),
+    );
+  });
+
+  it("outra recusa abaixo de 500 mostra a mensagem do servidor sem Atualizar sabores", async () => {
+    const u = userEvent.setup();
+    montar(vi.fn().mockRejectedValue(new ErroApi("Pedido já existe", 409)));
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Pedido já existe");
+    expect(screen.queryByRole("button", { name: "Atualizar sabores" })).not.toBeInTheDocument();
+  });
+
+  it("erro 500 e erro de rede mantêm o aviso de conexão, sem Atualizar sabores", async () => {
+    const u = userEvent.setup();
+    montar(vi.fn().mockRejectedValue(new ErroApi("Falha interna", 500)));
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    expect(await screen.findByText("Não foi possível anotar. Verifique a conexão.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Atualizar sabores" })).not.toBeInTheDocument();
+  });
+
+  it("durante o envio, Esc, X e fundo não fecham", async () => {
+    const u = userEvent.setup();
+    const enviar = vi.fn().mockReturnValue(new Promise(() => {}));
+    const { onFechar } = montar(enviar);
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    await u.keyboard("{Escape}");
+    await u.click(screen.getByRole("button", { name: "Fechar" }));
+    await u.click(screen.getByRole("dialog").parentElement as HTMLElement);
+    expect(screen.getByRole("button", { name: "Fechar" })).toBeDisabled();
+    expect(onFechar).not.toHaveBeenCalled();
+  });
+
+  it("toque no fundo só fecha com o formulário vazio; Esc e X fecham sempre", async () => {
+    const u = userEvent.setup();
+    const { onFechar } = montar();
+    const fundo = screen.getByRole("dialog").parentElement as HTMLElement;
+    await u.type(screen.getByLabelText("Nome do cliente"), "J");
+    await u.click(fundo);
+    expect(onFechar).not.toHaveBeenCalled();
+    await u.clear(screen.getByLabelText("Nome do cliente"));
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(fundo);
+    expect(onFechar).not.toHaveBeenCalled();
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(fundo);
+    expect(onFechar).toHaveBeenCalledTimes(1);
+    await u.type(screen.getByLabelText("Nome do cliente"), "J");
+    await u.click(screen.getByRole("button", { name: "Fechar" }));
+    await u.keyboard("{Escape}");
+    expect(onFechar).toHaveBeenCalledTimes(3);
+  });
+
+  it("Esc fecha e o campo de nome limita 40 caracteres", async () => {
+    const u = userEvent.setup();
+    const { onFechar } = montar();
+    const nome = screen.getByLabelText("Nome do cliente");
+    expect(nome).toHaveAttribute("maxlength", "40");
+    expect(nome).toHaveAttribute("autocomplete", "off");
+    await u.keyboard("{Escape}");
+    expect(onFechar).toHaveBeenCalledTimes(1);
+  });
+});

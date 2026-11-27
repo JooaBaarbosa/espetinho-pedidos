@@ -1,0 +1,89 @@
+services:
+  db:
+    image: postgres:19.0-alpine3.24
+    environment:
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: espetinho
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./docker/initdb:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d espetinho"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  node:
+    image: node:26.13.1-trixie-slim
+    working_dir: /app
+    # Node 25+ não traz mais o corepack: instala se faltar e ativa o pnpm do packageManager
+    entrypoint: ["sh", "-c", "command -v corepack >/dev/null 2>&1 || npm install -g --silent corepack@0.36.0; corepack enable && exec \"$$@\"", "--"]
+    command: ["pnpm", "dev", "-H", "0.0.0.0"]
+    environment:
+      DATABASE_URL: postgres://postgres:dev@db:5432/espetinho
+      DATABASE_URL_TEST: postgres://postgres:dev@db:5432/espetinho_test
+      APP_SENHA: dev
+      SESSION_SECRET: dev-session-secret-com-mais-de-32-caracteres
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - pnpm_store:/root/.local/share/pnpm
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # App de produção para os testes ponta a ponta, no banco espetinho_test.
+  # O build vai para um volume próprio montado em /app/.next, para não colidir com o .next do `pnpm dev`.
+  app-e2e:
+    profiles: ["e2e"]
+    image: node:26.13.1-trixie-slim
+    working_dir: /app
+    entrypoint: ["sh", "-c", "command -v corepack >/dev/null 2>&1 || npm install -g --silent corepack@0.36.0; corepack enable && exec \"$$@\"", "--"]
+    command: ["sh", "-c", "pnpm db:migrate && pnpm build && pnpm start -p 3000"]
+    environment:
+      DATABASE_URL: postgres://postgres:dev@db:5432/espetinho_test
+      APP_SENHA: dev
+      SESSION_SECRET: dev-session-secret-com-mais-de-32-caracteres
+      # Os testes acessam por http: sem isto o cookie de sessão sairia com `secure`.
+      COOKIE_INSEGURO: "1"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - pnpm_store:/root/.local/share/pnpm
+      - next_e2e:/app/.next
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/entrar').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 600s
+
+  # Playwright contra o app-e2e. Uso: docker compose run --rm e2e
+  # Divide a rede do app-e2e: o app fica em http://localhost:3000, que o Chromium trata como
+  # contexto seguro (como o https de produção; `crypto.randomUUID` só existe nele).
+  e2e:
+    profiles: ["e2e"]
+    image: mcr.microsoft.com/playwright:v1.65.1-noble
+    network_mode: "service:app-e2e"
+    working_dir: /app
+    command: ["./node_modules/.bin/playwright", "test"]
+    environment:
+      BASE_URL: http://localhost:3000
+      DATABASE_URL_TEST: postgres://postgres:dev@db:5432/espetinho_test
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+    depends_on:
+      app-e2e:
+        condition: service_healthy
+
+volumes:
+  node_modules:
+  pnpm_store:
+  next_e2e:

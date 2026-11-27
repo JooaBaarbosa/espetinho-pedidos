@@ -1,0 +1,12 @@
+.faixa {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--papel-escuro);
+  color: var(--tinta);
+  border-bottom: 1px solid var(--linha);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}

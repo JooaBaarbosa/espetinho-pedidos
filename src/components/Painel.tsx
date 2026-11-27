@@ -1,0 +1,262 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { CartaoPedido } from "./CartaoPedido";
+import { FaixaConexao } from "./FaixaConexao";
+import { Finalizados } from "./Finalizados";
+import { FormNovoPedido } from "./FormNovoPedido";
+import { IconeMarca } from "./IconeMarca";
+import { Topo } from "./Topo";
+import { usePainel } from "@/hooks/usePainel";
+import { buscarSabores, enviarPedido, ErroApi, executarAcao, SessaoExpirada } from "@/lib/api";
+import { estaAtrasado, type NovoPedido } from "@/lib/regras";
+import type { Acao, Pedido, Sabor } from "@/lib/tipos";
+import styles from "./Painel.module.css";
+
+type Aba = "preparacao" | "espera" | "finalizados";
+
+const ABAS: { id: Aba; rotulo: string }[] = [
+  { id: "preparacao", rotulo: "Preparação" },
+  { id: "espera", rotulo: "Espera" },
+  { id: "finalizados", rotulo: "Finalizados" },
+];
+
+export function Painel() {
+  const router = useRouter();
+  const { dados, agora, semConexao, recarregar } = usePainel();
+  const [novoAberto, setNovoAberto] = useState(false);
+  const [sabores, setSabores] = useState<Sabor[] | null>(null);
+  const [falhaSabores, setFalhaSabores] = useState(false);
+  const origemFoco = useRef<HTMLElement | null>(null);
+  /** Identifica a abertura atual do formulário; respostas de aberturas antigas são ignoradas. */
+  const aberturaAtual = useRef(0);
+  const [abertura, setAbertura] = useState(0);
+  const [aba, setAba] = useState<Aba>("preparacao");
+
+  const ativos = dados?.ativos ?? [];
+  const preparacao = ativos.filter((p) => p.status === "preparacao");
+  const espera = ativos.filter((p) => p.status === "espera");
+  const finalizados = dados?.finalizadosHoje ?? [];
+  const tempoMaxMin = dados?.tempoMaxMin ?? 0;
+  const contarAtrasados = (lista: Pedido[]) =>
+    dados ? lista.filter((p) => estaAtrasado(p, agora, tempoMaxMin)).length : 0;
+
+  const quantidades: Record<Aba, number> = {
+    preparacao: preparacao.length,
+    espera: espera.length,
+    finalizados: finalizados.length,
+  };
+
+  const carregarSabores = useCallback(
+    async (minha: number) => {
+      setFalhaSabores(false);
+      try {
+        const lista = await buscarSabores();
+        if (aberturaAtual.current === minha) setSabores(lista);
+      } catch (e) {
+        if (aberturaAtual.current !== minha) return;
+        if (e instanceof SessaoExpirada) {
+          router.replace("/entrar");
+          return;
+        }
+        setFalhaSabores(true);
+      }
+    },
+    [router],
+  );
+
+  function abrirNovo() {
+    origemFoco.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const minha = aberturaAtual.current + 1;
+    aberturaAtual.current = minha;
+    setAbertura(minha);
+    setSabores(null);
+    setNovoAberto(true);
+    void carregarSabores(minha);
+  }
+
+  function fecharNovo() {
+    aberturaAtual.current += 1;
+    setNovoAberto(false);
+    origemFoco.current?.focus();
+  }
+
+  const carregandoSabores = novoAberto && sabores === null;
+  useEffect(() => {
+    if (!carregandoSabores) return;
+    function aoTeclar(e: KeyboardEvent) {
+      if (e.key === "Escape") fecharNovo();
+    }
+    document.addEventListener("keydown", aoTeclar);
+    return () => document.removeEventListener("keydown", aoTeclar);
+  }, [carregandoSabores]);
+
+  async function enviarNovo(p: NovoPedido) {
+    try {
+      return await enviarPedido(p);
+    } catch (e) {
+      if (e instanceof SessaoExpirada) router.replace("/entrar");
+      throw e;
+    }
+  }
+
+  /** Só fecha se o diálogo ainda é a abertura que enviou o pedido; a lista sempre recarrega. */
+  function concluirNovo(minha: number) {
+    if (aberturaAtual.current === minha) fecharNovo();
+    void recarregar();
+  }
+
+  /** Conflito (409) e pedido inexistente (404) só recarregam; outra falha recarrega e chega ao cartão. */
+  async function agir(id: string, acao: Acao) {
+    let falha: unknown = null;
+    try {
+      await executarAcao(id, acao);
+    } catch (e) {
+      if (e instanceof SessaoExpirada) {
+        router.replace("/entrar");
+        return;
+      }
+      if (!(e instanceof ErroApi && e.status === 404)) falha = e;
+    }
+    // Falha de rede: a própria recarga também falha e liga a faixa "Sem conexão".
+    await recarregar();
+    if (falha) throw falha;
+  }
+
+  function cartoes(lista: Pedido[], vazio: string): ReactNode {
+    if (lista.length === 0) {
+      return (
+        <div className={styles.vazio}>
+          <IconeMarca nome="espeto" tamanho={40} />
+          <p>{vazio}</p>
+        </div>
+      );
+    }
+    return (
+      <ul className={styles.cartoes}>
+        {lista.map((p) => (
+          <li key={p.id}>
+            <CartaoPedido
+              pedido={p}
+              agora={agora}
+              tempoMaxMin={tempoMaxMin}
+              onAcao={(acao) => agir(p.id, acao)}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  function classeSecao(id: Aba, extra?: string): string {
+    return [styles.secao, extra, aba === id && styles.ativa].filter(Boolean).join(" ");
+  }
+
+  return (
+    <>
+      <Topo
+        contadores={dados?.contadores ?? null}
+        atrasadosPreparacao={contarAtrasados(preparacao)}
+        atrasadosEspera={contarAtrasados(espera)}
+        onNovoPedido={abrirNovo}
+      />
+      <FaixaConexao semConexao={semConexao} />
+
+      {novoAberto &&
+        (sabores ? (
+          <FormNovoPedido
+            sabores={sabores}
+            enviar={enviarNovo}
+            onConcluido={() => concluirNovo(abertura)}
+            onFechar={fecharNovo}
+            onRecarregarSabores={() => void carregarSabores(abertura)}
+          />
+        ) : (
+          <div className={styles.estadoSabores} role={falhaSabores ? "alert" : "status"}>
+            {falhaSabores ? (
+              <>
+                <p>Não foi possível carregar os sabores.</p>
+                <button type="button" onClick={() => void carregarSabores(abertura)}>
+                  Tentar de novo
+                </button>
+                <button type="button" onClick={fecharNovo}>
+                  Fechar
+                </button>
+              </>
+            ) : (
+              <>
+                <p>Carregando sabores</p>
+                <button type="button" onClick={fecharNovo}>
+                  Fechar
+                </button>
+              </>
+            )}
+          </div>
+        ))}
+
+      {dados === null ? (
+        <main className={styles.carregando}>
+          <p>Carregando pedidos</p>
+        </main>
+      ) : (
+        <main className={styles.painel}>
+          <div role="tablist" aria-label="Situação dos pedidos" className={styles.abas}>
+            {ABAS.map(({ id, rotulo }) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                id={`aba-${id}`}
+                aria-selected={aba === id}
+                aria-controls={`secao-${id}`}
+                className={styles.aba}
+                onClick={() => setAba(id)}
+              >
+                {rotulo}
+                <span className={styles.abaQtd}>{quantidades[id]}</span>
+              </button>
+            ))}
+          </div>
+
+          <section
+            id="secao-preparacao"
+            role="tabpanel"
+            aria-labelledby="titulo-preparacao"
+            className={classeSecao("preparacao")}
+          >
+            <h2 id="titulo-preparacao" className={styles.tituloSecao}>
+              <IconeMarca nome="churrasqueira" tamanho={26} />
+              Preparação
+            </h2>
+            {cartoes(preparacao, "Nenhum pedido em preparação")}
+          </section>
+
+          <section
+            id="secao-espera"
+            role="tabpanel"
+            aria-labelledby="titulo-espera"
+            className={classeSecao("espera")}
+          >
+            <h2 id="titulo-espera" className={styles.tituloSecao}>
+              Espera
+            </h2>
+            {cartoes(espera, "Nenhum pedido em espera")}
+          </section>
+
+          <section
+            id="secao-finalizados"
+            role="tabpanel"
+            aria-labelledby="titulo-finalizados"
+            className={classeSecao("finalizados", styles.finalizados)}
+          >
+            <h2 id="titulo-finalizados" className={styles.tituloSecao}>
+              Finalizados hoje
+            </h2>
+            <Finalizados pedidos={finalizados} />
+          </section>
+        </main>
+      )}
+    </>
+  );
+}

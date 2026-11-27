@@ -1,0 +1,43 @@
+.seletor {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  background: var(--papel);
+  border: 2px solid var(--madeira);
+  border-radius: var(--raio);
+  color: var(--madeira);
+  cursor: pointer;
+}
+
+.botao:hover:not(:disabled) {
+  background: var(--papel-escuro);
+}
+
+.botao:disabled {
+  border-color: var(--linha);
+  color: var(--linha);
+  cursor: default;
+}
+
+.botao:focus-visible {
+  outline: 3px solid var(--madeira);
+  outline-offset: 2px;
+}
+
+.valor {
+  min-width: 2.5rem;
+  text-align: center;
+  font-family: var(--font-rotulo), sans-serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

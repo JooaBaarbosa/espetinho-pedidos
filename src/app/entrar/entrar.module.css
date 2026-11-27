@@ -1,0 +1,35 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.principal {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.logo {
+  display: block;
+  width: 12rem;
+  height: auto;
+}
+
+.titulo {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-titulo), sans-serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
