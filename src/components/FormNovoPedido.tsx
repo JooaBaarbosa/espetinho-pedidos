@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { IconeMarca } from "./IconeMarca";
 import { SeletorQuantidade } from "./SeletorQuantidade";
+import { ErroApi } from "@/lib/api";
 import type { NovoPedido } from "@/lib/regras";
 import type { Sabor } from "@/lib/tipos";
 import styles from "./FormNovoPedido.module.css";
@@ -13,14 +14,20 @@ type Props = {
   enviar: (pedido: NovoPedido) => Promise<unknown>;
   onConcluido: () => void;
   onFechar: () => void;
+  /** Pede ao painel a lista de sabores de novo (depois de uma recusa 400). */
+  onRecarregarSabores: () => void;
 };
 
-export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar }: Props) {
+const AVISO_CONEXAO = "Não foi possível anotar. Verifique a conexão.";
+
+export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar, onRecarregarSabores }: Props) {
   const [id, setId] = useState(() => crypto.randomUUID());
   const [cliente, setCliente] = useState("");
   const [quantidades, setQuantidades] = useState<Record<number, number>>({});
   const [enviando, setEnviando] = useState(false);
-  const [falhou, setFalhou] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  /** Recusa 400 (ex.: sabor desativado em outro aparelho): oferece atualizar a lista. */
+  const [oferecerAtualizar, setOferecerAtualizar] = useState(false);
   const emEnvio = useRef(false);
   const nomeRef = useRef<HTMLInputElement>(null);
   const onFecharRef = useRef(onFechar);
@@ -54,6 +61,12 @@ export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar }: Props
     if (cliente === "" && itens.length === 0) fechar();
   }
 
+  function atualizarSabores() {
+    setErro(null);
+    setOferecerAtualizar(false);
+    onRecarregarSabores();
+  }
+
   function alternar(saborId: number, marcado: boolean) {
     setQuantidades((atual) => {
       if (marcado) return { ...atual, [saborId]: 1 };
@@ -68,11 +81,15 @@ export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar }: Props
     if (emEnvio.current || nome === "" || itens.length === 0) return;
     emEnvio.current = true;
     setEnviando(true);
-    setFalhou(false);
+    setErro(null);
+    setOferecerAtualizar(false);
     try {
       await enviar({ id, cliente: nome, itens });
-    } catch {
-      setFalhou(true);
+    } catch (e) {
+      // Recusa do servidor (< 500) traz a própria mensagem; rede, tempo limite e 5xx não.
+      const recusa = e instanceof ErroApi && e.status < 500;
+      setErro(recusa ? e.message : AVISO_CONEXAO);
+      setOferecerAtualizar(recusa && e.status === 400);
       return;
     } finally {
       emEnvio.current = false;
@@ -153,16 +170,21 @@ export function FormNovoPedido({ sabores, enviar, onConcluido, onFechar }: Props
           </div>
 
           <footer className={styles.rodape}>
-            {falhou && (
+            {erro && (
               <p role="alert" className={styles.erro}>
-                Não foi possível anotar. Verifique a conexão.
+                {erro}
               </p>
             )}
             {total > 0 && (
               <p className={styles.total}>Total: {total === 1 ? "1 espetinho" : `${total} espetinhos`}</p>
             )}
             <div className={styles.acoes}>
-              {falhou && (
+              {oferecerAtualizar && (
+                <button type="button" className={styles.secundario} disabled={enviando} onClick={atualizarSabores}>
+                  Atualizar sabores
+                </button>
+              )}
+              {erro && (
                 <button type="button" className={styles.secundario} disabled={!podeAnotar} onClick={() => anotar()}>
                   Tentar de novo
                 </button>

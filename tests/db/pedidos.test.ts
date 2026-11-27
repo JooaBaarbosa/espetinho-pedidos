@@ -49,6 +49,17 @@ describe('criarPedido', () => {
     ])
   })
 
+  it('reenvio de pedido já criado devolve o pedido mesmo com sabor desativado no meio tempo', async () => {
+    const { carne } = await ids()
+    const entrada = { id: randomUUID(), cliente: 'Bia', itens: [{ saborId: carne, quantidade: 3 }] }
+    await criarPedido(db, entrada)
+    await editarSabor(db, carne, { ativo: false })
+    const reenvio = await criarPedido(db, entrada)
+    expect(reenvio.criado).toBe(false)
+    expect(reenvio.pedido).toMatchObject({ id: entrada.id, cliente: 'Bia' })
+    expect(reenvio.pedido.itens).toEqual([expect.objectContaining({ nomeSabor: 'Carne', quantidade: 3 })])
+  })
+
   it('é idempotente pelo id', async () => {
     const { carne } = await ids()
     const entrada = { id: randomUUID(), cliente: 'Ana', itens: [{ saborId: carne, quantidade: 1 }] }

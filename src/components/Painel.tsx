@@ -170,6 +170,7 @@ export function Painel() {
             enviar={enviarNovo}
             onConcluido={() => concluirNovo(abertura)}
             onFechar={fecharNovo}
+            onRecarregarSabores={() => void carregarSabores(abertura)}
           />
         ) : (
           <div className={styles.estadoSabores} role={falhaSabores ? "alert" : "status"}>

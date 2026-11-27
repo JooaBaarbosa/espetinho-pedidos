@@ -71,6 +71,14 @@ export async function criarPedido(
   input: NovoPedido,
   agora: Date = new Date(),
 ): Promise<{ criado: boolean; pedido: Pedido }> {
+  // Reenvio de um pedido já gravado: devolve o que existe, mesmo que um sabor tenha
+  // sido desativado depois (a corrida restante cai no onConflictDoNothing abaixo).
+  const [existente] = await db.select().from(pedidos).where(eq(pedidos.id, input.id))
+  if (existente) {
+    const [pedido] = await montar(db, [existente])
+    return { criado: false, pedido: pedido! }
+  }
+
   const ids = input.itens.map((i) => i.saborId)
   const encontrados = await db
     .select()

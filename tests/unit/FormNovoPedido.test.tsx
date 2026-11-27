@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FormNovoPedido } from "@/components/FormNovoPedido";
+import { ErroApi } from "@/lib/api";
 import type { Sabor } from "@/lib/tipos";
 
 const SABORES: Sabor[] = [
@@ -14,7 +15,15 @@ afterEach(cleanup);
 function montar(enviar = vi.fn().mockResolvedValue({})) {
   const onConcluido = vi.fn();
   const onFechar = vi.fn();
-  render(<FormNovoPedido sabores={SABORES} enviar={enviar} onConcluido={onConcluido} onFechar={onFechar} />);
+  render(
+    <FormNovoPedido
+      sabores={SABORES}
+      enviar={enviar}
+      onConcluido={onConcluido}
+      onFechar={onFechar}
+      onRecarregarSabores={vi.fn()}
+    />,
+  );
   return { enviar, onConcluido, onFechar };
 }
 
@@ -122,6 +131,54 @@ describe("FormNovoPedido", () => {
     await waitFor(() => expect(onConcluido).toHaveBeenCalledTimes(1));
     expect(enviar).toHaveBeenCalledTimes(2);
     expect(enviar.mock.calls[1]?.[0].id).toBe(enviar.mock.calls[0]?.[0].id);
+  });
+
+  it("recusa 400: mostra a mensagem do servidor e Atualizar sabores recarrega mantendo nome e itens ativos", async () => {
+    const u = userEvent.setup();
+    const enviar = vi.fn().mockRejectedValueOnce(new ErroApi("Sabor indisponível", 400)).mockResolvedValue({});
+    const onRecarregarSabores = vi.fn();
+    const props = { enviar, onConcluido: vi.fn(), onFechar: vi.fn(), onRecarregarSabores };
+    const { rerender } = render(<FormNovoPedido sabores={SABORES} {...props} />);
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Aumentar Carne" }));
+    await u.click(screen.getByRole("checkbox", { name: "Frango" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Sabor indisponível");
+    expect(screen.queryByText("Não foi possível anotar. Verifique a conexão.")).not.toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Atualizar sabores" }));
+    expect(onRecarregarSabores).toHaveBeenCalledTimes(1);
+
+    // Painel entrega a lista nova, sem o Frango desativado.
+    rerender(<FormNovoPedido sabores={[SABORES[0]!]} {...props} />);
+    expect(screen.getByLabelText("Nome do cliente")).toHaveValue("João");
+    expect(screen.getByRole("checkbox", { name: "Carne" })).toBeChecked();
+    expect(screen.getByText("Total: 2 espetinhos")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    expect(enviar).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cliente: "João", itens: [{ saborId: 1, quantidade: 2 }] }),
+    );
+  });
+
+  it("outra recusa abaixo de 500 mostra a mensagem do servidor sem Atualizar sabores", async () => {
+    const u = userEvent.setup();
+    montar(vi.fn().mockRejectedValue(new ErroApi("Pedido já existe", 409)));
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Pedido já existe");
+    expect(screen.queryByRole("button", { name: "Atualizar sabores" })).not.toBeInTheDocument();
+  });
+
+  it("erro 500 e erro de rede mantêm o aviso de conexão, sem Atualizar sabores", async () => {
+    const u = userEvent.setup();
+    montar(vi.fn().mockRejectedValue(new ErroApi("Falha interna", 500)));
+    await u.type(screen.getByLabelText("Nome do cliente"), "João");
+    await u.click(screen.getByRole("checkbox", { name: "Carne" }));
+    await u.click(screen.getByRole("button", { name: "Anotar" }));
+    expect(await screen.findByText("Não foi possível anotar. Verifique a conexão.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Atualizar sabores" })).not.toBeInTheDocument();
   });
 
   it("durante o envio, Esc, X e fundo não fecham", async () => {
