@@ -2,6 +2,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { FormEntrar } from "@/components/FormEntrar";
+import { ErroApi } from "@/lib/api";
 
 const roteador = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => roteador }));
@@ -47,6 +48,16 @@ describe("FormEntrar", () => {
     await u.click(screen.getByRole("button", { name: "Entrar" }));
     expect(await screen.findByText("Não foi possível entrar. Verifique a conexão.")).toBeInTheDocument();
     expect(screen.queryByText("Senha incorreta")).not.toBeInTheDocument();
+  });
+
+  it("erro do servidor mostra a mensagem dele", async () => {
+    const u = userEvent.setup();
+    render(<FormEntrar entrar={vi.fn().mockRejectedValue(new ErroApi("Configuração ausente", 500))} />);
+    await u.type(screen.getByLabelText("Senha"), "dev");
+    await u.click(screen.getByRole("button", { name: "Entrar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Configuração ausente");
+    expect(screen.queryByText("Não foi possível entrar. Verifique a conexão.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Entrar" })).toBeEnabled();
   });
 
   it("desabilita o botão enquanto envia", async () => {

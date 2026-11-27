@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { entrar as entrarNaApi } from "@/lib/api";
+import { entrar as entrarNaApi, ErroApi } from "@/lib/api";
 import styles from "./FormEntrar.module.css";
 
 type Props = {
@@ -28,8 +28,8 @@ export function FormEntrar({ entrar = entrarNaApi }: Props) {
         return;
       }
       setErro("Senha incorreta");
-    } catch {
-      setErro("Não foi possível entrar. Verifique a conexão.");
+    } catch (e) {
+      setErro(e instanceof ErroApi ? e.message : "Não foi possível entrar. Verifique a conexão.");
     }
     setEnviando(false);
   }
